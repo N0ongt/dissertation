@@ -1,19 +1,15 @@
 import random
-
 import matplotlib.pyplot as plt
-print("Try programiz.pro")
+
 def generate_polynomial(secret, degree=1):
     """
-    Generates a linear polynomial with the given secret as the constant term.
-    For a linear polynomial, degree is 1.
+    Generates a polynomial with the given secret as the constant term.
+    The degree determines the highest degree of x in the polynomial.
     """
-    coefficients =[]
-    for i in range(degree+1):
-        # coefficients = [random.randint(1, 100)]  # random coefficient for x term
-        coefficients.append(random.randint(1, 100))  # secret as the constant term
-    coefficients.append(secret)
+    coefficients = [secret]  # secret as the constant term
+    for _ in range(degree):
+        coefficients.append(random.randint(1, 100))  # random coefficients for other terms
     return coefficients
-print(generate_polynomial(1234,1))
 
 def evaluate_polynomial(coefficients, x):
     """
@@ -27,14 +23,14 @@ def evaluate_polynomial(coefficients, x):
 def generate_shares(secret, n, k):
     """
     Generates n shares from a secret using Shamir's Secret Sharing with threshold k.
-    Since we're using a linear polynomial, k must be 2.
     """
     if k != 2:
         raise ValueError("For a linear polynomial, the threshold k must be 2.")
     
-    polynomial = generate_polynomial(secret, degree=1)
+    polynomial = generate_polynomial(secret, degree=k-1)
     shares = [(i, evaluate_polynomial(polynomial, i)) for i in range(1, n + 1)]
     return shares
+
 def lagrange_interpolation(x, points):
     """
     Performs Lagrange interpolation to find the y value at x.
@@ -76,7 +72,7 @@ def plot_shares(shares, secret):
     plt.show()
 
 def main():
-    secret = 246
+    secret = 1234
     n = 5  # Total number of shares
     k = 2  # Threshold to reconstruct the secret (must be 2 for a linear polynomial)
 
