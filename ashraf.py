@@ -1,7 +1,7 @@
 import random
 import matplotlib.pyplot as plt
 
-def generate_polynomial(secret, degree=1):
+def generate_polynomial(secret, degree):
     """
     Generates a polynomial with the given secret as the constant term.
     The degree determines the highest degree of x in the polynomial.
@@ -24,8 +24,8 @@ def generate_shares(secret, n, k):
     """
     Generates n shares from a secret using Shamir's Secret Sharing with threshold k.
     """
-    if k != 2:
-        raise ValueError("For a linear polynomial, the threshold k must be 2.")
+    if k < 2:
+        raise ValueError("Threshold k must be at least 2.")
     
     polynomial = generate_polynomial(secret, degree=k-1)
     shares = [(i, evaluate_polynomial(polynomial, i)) for i in range(1, n + 1)]
@@ -47,12 +47,12 @@ def lagrange_interpolation(x, points):
         total += term
     return total
 
-def reconstruct_secret(shares):
+def reconstruct_secret(shares, k):
     """
     Reconstructs the secret using the first k shares.
     """
-    # For a linear polynomial, we only need 2 shares to reconstruct the secret
-    points = shares[:2]
+    # Use the first k shares to reconstruct the secret
+    points = shares[:k]
     return lagrange_interpolation(0, points)
 
 def plot_shares(shares, secret):
@@ -74,7 +74,7 @@ def plot_shares(shares, secret):
 def main():
     secret = 1234
     n = 5  # Total number of shares
-    k = 2  # Threshold to reconstruct the secret (must be 2 for a linear polynomial)
+    k = 5  # Threshold to reconstruct the secret
 
     # Generate shares using Shamir's Secret Sharing
     shares = generate_shares(secret, n, k)
@@ -84,7 +84,7 @@ def main():
         print(f"Share {share[0]}: {share[1]}")
     
     # Reconstruct the secret
-    reconstructed_secret = reconstruct_secret(shares)
+    reconstructed_secret = reconstruct_secret(shares, k)
     print(f"Reconstructed Secret: {reconstructed_secret}")
 
     # Plot the shares and the reconstructed secret
