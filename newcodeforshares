@@ -4,25 +4,51 @@ import numpy as np
 from itertools import permutations
 
 def generate_polynomial(secret, degree):
-    coefficients = [secret]
+    """
+    Generates a polynomial with the given secret as the constant term.
+    The degree determines the highest degree of x in the polynomial.
+    """
+    coefficients = [secret]  # secret as the constant term
     for _ in range(degree):
-        coefficients.append(random.randint(1, 100))
+        coefficients.append(random.randint(1, 100))  # random coefficients for other terms
     return coefficients
 
 def evaluate_polynomial(coefficients, x):
+    """
+    Evaluates the polynomial at a given x.
+    """
     result = 0
     for i, coeff in enumerate(coefficients):
         result += coeff * (x ** i)
     return result
 
+def find_x_for_y(coefficients, y):
+    """
+    Finds the x value(s) that yield the given y for the polynomial.
+    """
+    def poly_function(x):
+        return evaluate_polynomial(coefficients, x) - y
+
+    # Use fsolve to find the roots, which are the x values that make poly_function(x) = 0
+    x_guess = 0  # Initial guess for fsolve
+    x_solution = fsolve(poly_function, x_guess)
+    return x_solution
+
 def generate_shares(secret, n, k):
+    """
+    Generates n shares from a secret using Shamir's Secret Sharing with threshold k.
+    """
     if k < 2:
         raise ValueError("Threshold k must be at least 2.")
+    
     polynomial = generate_polynomial(secret, degree=k-1)
     shares = [(i, evaluate_polynomial(polynomial, i)) for i in range(1, n + 1)]
     return shares, polynomial
 
 def lagrange_interpolation(x, points):
+    """
+    Performs Lagrange interpolation to find the y value at x.
+    """
     total = 0
     n = len(points)
     for i in range(n):
@@ -31,73 +57,96 @@ def lagrange_interpolation(x, points):
         for j in range(n):
             if i != j:
                 xj, _ = points[j]
-                if xi == xj:
-                    raise ValueError("Duplicate x values found in points.")
                 term *= (x - xj) / (xi - xj)
         total += term
     return total
 
 def reconstruct_secret(shares, k):
+    """
+    Reconstructs the secret using the first k shares.
+    """
+    # Use the first k shares to reconstruct the secret
     points = shares[:k]
     return lagrange_interpolation(0, points)
 
-def plot_shares_with_permutations(shares, polynomial, user_point):
+def plot_shares_with_permutations(shares, polynomial, user_point=None):
+    """
+    Plots the shares and the reconstructed secret on a graph, including permutations of shares with user point.
+    """
     x_values = [share[0] for share in shares]
     y_values = [share[1] for share in shares]
-
-    plt.figure(figsize=(10, 6))
     
+    plt.plot(x_values, y_values, '-bo', label='Shares')
+    
+    # Plot the polynomial line
     x_range = np.linspace(min(x_values) - 1, max(x_values) + 1, 500)
     y_range = [evaluate_polynomial(polynomial, x) for x in x_range]
     plt.plot(x_range, y_range, 'b--', label='Polynomial')
     
+    # Mark the reconstructed secret at f(0)
     secret = evaluate_polynomial(polynomial, 0)
     plt.scatter(0, secret, color='red', label=f'f(0) = {secret}', zorder=5)
-
-    user_x, user_y = user_point
-    shares.append(user_point)
     
-    valid_permutations = [perm for perm in permutations(shares, 3) if user_point in perm and len(set(p[0] for p in perm)) == 3]
+    # Collect permutations
+    permutation_results = []
     
-    colors = plt.cm.jet(np.linspace(0, 1, len(valid_permutations)))
-    
-    for idx, perm in enumerate(valid_permutations):
-        perm_x_values = [point[0] for point in perm]
-        perm_y_values = [point[1] for point in perm]
+    if user_point:
+        user_x, user_y = user_point
+        valid_combinations = [perm for perm in permutations(shares, 2)]
+        valid_combinations = [(user_point,) + comb for comb in valid_combinations]
         
-        try:
+        colors = plt.cm.rainbow(np.linspace(0, 1, len(valid_combinations)))
+        
+        for idx, perm in enumerate(valid_combinations):
+            perm_x_values = [point[0] for point in perm]
+            perm_y_values = [point[1] for point in perm]
+            
+            # Reconstruct secret using permutation
             reconstructed_secret = lagrange_interpolation(0, perm)
+            permutation_results.append((perm, reconstructed_secret))
+            
+            # Plot the shares and the reconstructed secret for this permutation
             plt.plot(perm_x_values, perm_y_values, '-o', color=colors[idx], label=f'Perm {idx+1}, f(0)={reconstructed_secret:.2f}')
-        except ValueError as e:
-            print(f"Skipping invalid permutation: {perm} ({e})")
     
-    plt.title('Shamir Secret Sharing Permutations')
+    plt.title('Shamir Secret Sharing Shares with Permutations')
     plt.xlabel('x')
     plt.ylabel('f(x)')
     plt.legend()
     plt.grid(True)
     plt.show()
+    
+    return permutation_results
 
 def main():
     secret = int(input('Enter your Secret: '))
     n = int(input('Enter Total Number of Shares n: '))  # Total number of shares
     k = int(input('Enter Threshold k (>2): '))  # Threshold to reconstruct the secret
 
+    # Generate shares using Shamir's Secret Sharing
     shares, polynomial = generate_shares(secret, n, k)
 
+    # Print shares
     for share in shares:
         print(f"Share {share[0]}: {share[1]}")
     
-    user_x = int(input("Enter x value to verify: "))
-    user_y = int(input("Enter y value to verify: "))
-    
+    # User input to verify values
+    user_x = float(input("Enter x value to verify: "))
+    user_y = float(input("Enter y value to verify: "))
+    x_solution = find_x_for_y(polynomial, user_y)
     if np.isclose(evaluate_polynomial(polynomial, user_x), user_y):
-        print("The provided value lies on the polynomial.")
+        print(f"The provided value lies on the polynomial. x = {user_x}")
     else:
-        print("The provided value does not lie on the polynomial.")
+        print(f"The provided value does not lie on the polynomial.")
     
-    plot_shares_with_permutations(shares, polynomial, user_point=(user_x, user_y))
+    # Plot the graph with the user point
+    permutation_results = plot_shares_with_permutations(shares, polynomial, user_point=(user_x, user_y))
     
+    # Print the permutation results
+    for idx, (perm, f0) in enumerate(permutation_results):
+        perm_str = ", ".join([f"({p[0]}, {p[1]})" for p in perm])
+        print(f"Permutation {idx+1}: {perm_str} -> f(0) = {f0:.2f}")
+
+    # Reconstruct the secret
     reconstructed_secret = reconstruct_secret(shares, k)
     print(f"Reconstructed Secret: {reconstructed_secret}")
 
